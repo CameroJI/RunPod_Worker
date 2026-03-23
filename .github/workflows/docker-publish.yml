@@ -31,5 +31,5 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/cameroji/runpod_worker:latest
+            ghcr.io/cameroji/runpod_worker:${{ github.sha }}
