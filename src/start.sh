@@ -1,30 +1,35 @@
 #!/bin/bash
 set -e
 
-# Ruta del modelo — por defecto apunta al network volume
-# Sobreescribe con la variable de entorno MODEL_PATH en RunPod
-MODEL="${MODEL_PATH:-/runpod-volume/models/cyankiwi/Qwen3-VL-30B-A3B-Instruct-AWQ-4bit}"
+if [ -z "$MODEL_PATH" ]; then
+  echo "[start.sh] ERROR: MODEL_PATH no está definida"
+  exit 1
+fi
 
-echo "[start.sh] Iniciando vLLM con modelo: $MODEL"
+SERVED_MODEL_NAME="${SERVED_MODEL_NAME:-qwen3}"
+DTYPE="${DTYPE:-auto}"
+MAX_MODEL_LEN="${MAX_MODEL_LEN:-32768}"
+GPU_MEMORY_UTILIZATION="${GPU_MEMORY_UTILIZATION:-0.92}"
+MAX_IMAGES="${MAX_IMAGES:-5}"
+TOOL_CALL_PARSER="${TOOL_CALL_PARSER:-hermes}"
+PORT="${PORT:-8000}"
 
 python -m vllm.entrypoints.openai.api_server \
-  --model "$MODEL" \
-  --dtype auto \
-  --max-model-len 32768 \
-  --gpu-memory-utilization 0.92 \
-  --limit-mm-per-prompt image=5 \
-  --served-model-name qwen3 \
-  --port 8000 \
+  --model "$MODEL_PATH" \
+  --dtype "$DTYPE" \
+  --max-model-len "$MAX_MODEL_LEN" \
+  --gpu-memory-utilization "$GPU_MEMORY_UTILIZATION" \
+  --limit-mm-per-prompt image="$MAX_IMAGES" \
+  --served-model-name "$SERVED_MODEL_NAME" \
+  --port "$PORT" \
   --enable-auto-tool-choice \
-  --tool-call-parser hermes &
+  --tool-call-parser "$TOOL_CALL_PARSER" &
 
 VLLM_PID=$!
 
-# Espera hasta que vLLM responda — timeout de 10 minutos
-echo "[start.sh] Esperando a que vLLM esté listo..."
 TIMEOUT=600
 ELAPSED=0
-until curl -sf http://127.0.0.1:8000/health > /dev/null 2>&1; do
+until curl -sf http://127.0.0.1:${PORT}/health > /dev/null 2>&1; do
   if [ $ELAPSED -ge $TIMEOUT ]; then
     echo "[start.sh] ERROR: vLLM no arrancó en ${TIMEOUT}s"
     kill $VLLM_PID 2>/dev/null
@@ -34,8 +39,6 @@ until curl -sf http://127.0.0.1:8000/health > /dev/null 2>&1; do
   ELAPSED=$((ELAPSED + 3))
 done
 
-echo "[start.sh] vLLM listo. Iniciando handler de RunPod..."
+echo "[start.sh] vLLM listo"
 python /handler.py
-
-# Si handler termina, apaga vLLM también
 kill $VLLM_PID 2>/dev/null
