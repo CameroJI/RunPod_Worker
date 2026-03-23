@@ -1,0 +1,13 @@
+{
+  "input": {
+    "model": "qwen3",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Hola, ¿puedes presentarte?"
+      }
+    ],
+    "max_tokens": 256,
+    "temperature": 0.7
+  }
+}
